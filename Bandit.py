@@ -245,9 +245,11 @@ class EBandit(Bandit):
         return f'A Bandit with {self.m} Win Rate'
 
     def pull(self):
+        # Generate a random value from a normal distribution 
         return np.random.randn() + self.m
 
     def update(self, x):
+        # Increment count of observations and estimate of the mean 
         self.N += 1
         self.m_estimate = ((1 - (1.0/self.N))*self.m_estimate) + ((1.0/self.N)*x)
         return('updated')
@@ -287,25 +289,32 @@ class EpsilonGreedy(Bandit): # + has a inheritance from EBandit
             bandit_info = []
 
             for i in range(self.N):
+                # Generate a random probability for exploration
                 p = np.random.random()
-                eps = 1/(i+1)
-                if p < eps:
-                    count_exploration += 1
+                eps = 1/(i+1) # set a decaying eps
+                if p < eps: # Exploration step
+                    count_exploration += 1 # Choose increment exploration count and random bandit
                     j = np.random.choice(len(self.bandits))
-                else:
-                    count_exploitation += 1
+                else: # Exploitation step
+                    count_exploitation += 1  # Choose the bandit with the highest estimated mean reward
                     j = np.argmax([b.m_estimate for b in self.bandits])
 
+                # Choose the bandit with the highest estimated mean reward
                 x = self.bandits[j].pull()
                 self.bandits[j].update(x)
                 
+                # Count suboptimal selections 
                 if j != true_best:
                     count_suboptimal += 1
-                
+
+                # Store the reward obtained from this round and info about the chosen bandit
                 data[i] = x
                 bandit_info.append(repr(self.bandits[j]))
             
+            # Calculate cumulative average rewards over time
             cumulative_average = np.cumsum(data) / (np.arange(self.N) + 1)
+
+            # Get the estimated mean rewards for each bandit
             rewards_convergence=[b.m_estimate for b in self.bandits]
             return cumulative_average, data, rewards_convergence, bandit_info, \
                    count_suboptimal, count_exploration, count_exploitation
@@ -385,12 +394,17 @@ class TBandit(Bandit):
         return f'A Bandit with {self.true_mean} Win Rate'
 
     def pull(self):
+        # Generate a random value from a normal distribution 
         return np.random.randn() / np.sqrt(self.tau) + self.true_mean
     
     def update(self, x):
+        # Increment lambda by tau
         self.lambda_ += self.tau
+        # Update the sum of observed values
         self.sum_x += x
+        # Update the estimated
         self.m = (self.tau * self.sum_x) / self.lambda_
+        # Increment the count of trials
         self.N += 1
 
     def experiment(self):
@@ -423,24 +437,33 @@ class ThompsonSampling(Bandit): # + has a inheritance from TBandit
         pass
 
     def experiment(self):
+        # Create bandits based on given means
+        # Initialize arrays and variables to track rewards, bandit information, and suboptimal selections
         bandits = [TBandit(m) for m in self.bandit_means]
         rewards = np.empty(self.N)
         bandit_info = []
         count_suboptimal = 0
 
+        # Run the experiment for N rounds
         for i in range(self.N):
+            # Choose the bandit with the highest sample value
             j = np.argmax([b.sample() for b in bandits])
              
+            # Pull the chosen bandit's arm and update its state
             x = bandits[j].pull()
             bandits[j].update(x)
+
+            # Record the reward obtained and information about the chosen bandit
             rewards[i] = x
             bandit_info.append(repr(bandits[j]))
 
+            # Check if the chosen bandit is suboptimal
             if j != np.argmax(self.bandit_means):  
                 count_suboptimal += 1
 
-
-        cumulative_average = np.cumsum(rewards) / (np.arange(self.N) + 1)                                     
+        # Calculate cumulative average rewards
+        cumulative_average = np.cumsum(rewards) / (np.arange(self.N) + 1)       
+        # Get the estimated means of each bandit after the experiment                              
         reward_convergence = [b.m for b in bandits]
         return cumulative_average, rewards, reward_convergence, bandit_info, count_suboptimal
 
